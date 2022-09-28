@@ -6,9 +6,15 @@
 #include "parser.h"
 
 
-// prototype declaration
+/* prototype declaration */
 void write_push(FILE *fp, char *segment, int num);
 void write_pop(FILE *fp, char *segment, int num);
+void write_label(FILE *fp, char *label_name);
+void write_goto(FILE *fp, char *label_name);
+void write_if(FILE *fp, char *label_name);
+void write_call(FILE *fp, char *function_name, int num_args);
+void write_return(FILE *fp);
+void write_function(FILE *fp, char *function_name, int num_locals);
 void write_add(FILE *fp);
 void write_sub(FILE *fp);
 void write_neg(FILE *fp);
@@ -23,6 +29,7 @@ void write_not(FILE *fp);
 /* global variables */
 char file_name[100];
 int label_count = 0;
+int return_count = 0;
 
 
 /**
@@ -70,10 +77,37 @@ void vm_translator(FILE *fp, char *line) {
         } else if (strncmp(arg1, "not", 3) == 0) {
             write_not(fp);
         }
+    } else if (cur_command_type == C_LABEL) {
+        write_label(fp, arg1);
+    } else if (cur_command_type == C_GOTO) {
+        write_goto(fp, arg1);
+    } else if (cur_command_type == C_IF) {
+        write_if(fp, arg1);
+    } else if (cur_command_type == C_FUNCTION) {
+        write_function(fp, arg1, arg2);
+    } else if (cur_command_type == C_RETURN) {
+        write_return(fp);
+    } else if (cur_command_type == C_CALL) {
+        write_call(fp, arg1, arg2);
     }
-    
+
     free(arg1);
 }
+
+
+/**
+ * \brief Write assembly code corresponding to "if-goto" command in vm file.
+ * \param[in] fp: A file to be written code 
+ */
+void write_init(FILE *fp) {
+    fprintf(fp, "@256\n");
+    fprintf(fp, "D=A\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "M=D\n");
+
+    write_call(fp, "Sys.init", 0);
+}
+
 
 /**
  * \brief Write assembly code corresponding to "push constant n".
@@ -238,6 +272,188 @@ void write_pop(FILE *fp, char *segment, int index) {
         fprintf(fp, "@R13\n");
         fprintf(fp, "A=M\n");
         fprintf(fp, "M=D\n");
+    }
+}
+
+
+/**
+ * \brief Write assembly code corresponding to "label" command in vm file.
+ * \param[in] fp: A file to be written code 
+ * \param[in] label_name: The label name
+ */
+void write_label(FILE *fp, char *label_name) {
+    fprintf(fp, "(%s)\n", label_name);
+}
+
+
+/**
+ * \brief Write assembly code corresponding to "goto" command in vm file.
+ * \param[in] fp: A file to be written code 
+ * \param[in] label_name: The label name
+ */
+void write_goto(FILE *fp, char *label_name) {
+    fprintf(fp, "// goto %s\n", label_name);
+    fprintf(fp, "@%s\n", label_name);
+    fprintf(fp, "0;JMP\n");
+}
+
+
+/**
+ * \brief Write assembly code corresponding to "if-goto" command in vm file.
+ * \param[in] fp: A file to be written code 
+ * \param[in] label_name: The label name
+ */
+void write_if(FILE *fp, char *label_name) {
+    fprintf(fp, "// if-goto %s\n", label_name);
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "M=M-1\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "A=M\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@%s\n", label_name);
+    fprintf(fp, "D;JNE\n");
+}
+
+
+/**
+ * \brief Write assembly code corresponding to "call" command in vm file.
+ * \param[in] fp: A file to be written code 
+ * \param[in] function_name: The function name to be called
+ * \param[in] num_args: The number of argments passed to the function.
+ */
+void write_call(FILE *fp, char *function_name, int num_args) {
+    fprintf(fp, "// call %s %d\n", function_name, num_args);
+
+    /* push return address */
+    fprintf(fp, "@return%d\n", return_count);
+    fprintf(fp, "D=A\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "A=M\n");
+    fprintf(fp, "M=D\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "M=M+1\n");
+
+    /* save the state of the calling function by pushing LCL, ARG, THIS and THAT */
+    write_push(fp, "local", 0);
+    write_push(fp, "argument", 0);
+    write_push(fp, "this", 0);
+    write_push(fp, "that", 0);
+
+    /* */
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@%d\n", num_args);
+    fprintf(fp, "D=D-A\n");
+    fprintf(fp, "@5\n");
+    fprintf(fp, "D=D-A\n");
+    fprintf(fp, "@ARG\n");
+    fprintf(fp, "M=D\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@LCL\n");
+    fprintf(fp, "M=D\n");
+    fprintf(fp, "@%s\n", function_name);
+    fprintf(fp, "0;JMP\n");
+    fprintf(fp, "(return%d)\n", return_count);
+
+    return_count++;
+}
+
+
+/**
+ * \brief Write assembly code corresponding to "return" command in vm file.
+ * \param[in] fp: A file to be written code 
+ */
+void write_return(FILE *fp) {
+    fprintf(fp, "// return\n");
+
+    /* memory[13] <- memory[LCL] */
+    fprintf(fp, "@LCL\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@R13\n");
+    fprintf(fp, "M=D\n");
+
+    /* memory[14] <- memory[memory[R13]-5] */
+    fprintf(fp, "@5\n");
+    fprintf(fp, "D=A\n");
+    fprintf(fp, "@R13\n");
+    fprintf(fp, "A=M-D\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@R14\n");
+    fprintf(fp, "M=D\n");
+
+    /* memory[SP] -= 1 */
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "M=M-1\n");
+
+    /* memory[memory[ARG]] <- memory[memory[SP]] */
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "A=M\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@ARG\n");
+    fprintf(fp, "A=M\n");
+    fprintf(fp, "M=D\n");
+
+    /* memory[SP] <- memory[ARG] + 1 */
+    fprintf(fp, "@ARG\n");
+    fprintf(fp, "D=M+1\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "M=D\n");
+
+    /* memory[THAT] <- memory[memory[R13]-1] */
+    fprintf(fp, "@1\n");
+    fprintf(fp, "D=A\n");
+    fprintf(fp, "@R13\n");
+    fprintf(fp, "A=M-D\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@THAT\n");
+    fprintf(fp, "M=D\n");
+
+    /* memory[THIS] <- memory[memory[R13]-2] */
+    fprintf(fp, "@2\n");
+    fprintf(fp, "D=A\n");
+    fprintf(fp, "@R13\n");
+    fprintf(fp, "A=M-D\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@THIS\n");
+    fprintf(fp, "M=D\n");
+
+    /* memory[ARG] <- memory[memory[R13]-3] */
+    fprintf(fp, "@3\n");
+    fprintf(fp, "D=A\n");
+    fprintf(fp, "@R13\n");
+    fprintf(fp, "A=M-D\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@ARG\n");
+    fprintf(fp, "M=D\n");
+
+    /* memory[LCL] <- memory[memory[R13]-4] */
+    fprintf(fp, "@4\n");
+    fprintf(fp, "D=A\n");
+    fprintf(fp, "@R13\n");
+    fprintf(fp, "A=M-D\n");
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@LCL\n");
+    fprintf(fp, "M=D\n");
+
+    /* goto memory[R14] */
+    fprintf(fp, "@R14\n");
+    fprintf(fp, "A=M\n");
+    fprintf(fp, "0;JMP\n");
+}
+
+
+/**
+ * \brief Write assembly code corresponding to "function" command in vm file.
+ * \param[in] fp: A file to be written code 
+ * \param[in] function_name: The function name to be declared.
+ * \param[in] num_locals: The number of local variables the declared function has.
+ */
+void write_function(FILE *fp, char *function_name, int num_locals) {
+    fprintf(fp, "(%s)\n", function_name);
+
+    for (int i=0; i<num_locals; i++) {
+        write_push(fp, "constant", 0);
     }
 }
 

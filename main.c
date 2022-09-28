@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    write_init(asm_file);
 
     /* read one line, tlansalate it and write it into asm_file */
     while (fgets(line, sizeof(line), vm_file) != NULL) {

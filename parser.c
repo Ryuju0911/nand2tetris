@@ -77,7 +77,7 @@ char *parse_arg1(char *line) {
             line++;
         }
         line++;
-        while (*line != ' ') {
+        while (*line != ' ' && *line != '\n') {
             arg1[i] = *line;
             line++;
             i++;

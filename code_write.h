@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 void vm_translator(FILE *fp, char *line);
+void write_init(FILE *fp);
 
 extern int label_count;
 
