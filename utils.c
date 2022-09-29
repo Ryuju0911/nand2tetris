@@ -7,11 +7,18 @@ char file_name[100]; /* global variable */
 
 
 /**
- * \brief Get the file name (xxx) from a vm file (xxx.vm).
- * \param[in] vm_file_name: A vm file name (xxx.vm)
+ * \brief Get the file name (yyy) from a vm file path (./../xxx/yyy.vm).
+ * \param[in] vm_file_path: A vm file path (./../xxx/yyy.vm)
  */
-void *get_file_name(char *vm_file_name) {
-    strcpy(file_name, vm_file_name);
+void *get_file_name(char *vm_file_path) {
+    char *pos = strrchr(vm_file_path, '/');
+    if (pos != NULL) {
+        *pos++;
+        strcpy(file_name, pos);
+    } else {
+        strcpy(file_name, vm_file_path);
+    }
+
     char *extension_pos = strstr(file_name, ".vm");
     *extension_pos = '\0';
 }

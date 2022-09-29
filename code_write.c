@@ -24,6 +24,7 @@ void write_lt(FILE *fp, int label_count);
 void write_and(FILE *fp);
 void write_or(FILE *fp);
 void write_not(FILE *fp);
+void save_state(FILE *fp, char *register_name);
 
 
 /* global variables */
@@ -334,10 +335,10 @@ void write_call(FILE *fp, char *function_name, int num_args) {
     fprintf(fp, "M=M+1\n");
 
     /* save the state of the calling function by pushing LCL, ARG, THIS and THAT */
-    write_push(fp, "local", 0);
-    write_push(fp, "argument", 0);
-    write_push(fp, "this", 0);
-    write_push(fp, "that", 0);
+    save_state(fp, "LCL");
+    save_state(fp, "ARG");
+    save_state(fp, "THIS");
+    save_state(fp, "THAT");
 
     /* */
     fprintf(fp, "@SP\n");
@@ -645,6 +646,22 @@ void write_not(FILE *fp) {
     fprintf(fp, "@SP\n");
     fprintf(fp, "AM=M-1\n");
     fprintf(fp, "M=!M\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "M=M+1\n");
+}
+
+
+/**
+ * \brief Write assembly code corresponding to "not".
+ * \note This function should be called if the curretn command is C_ARITHMETIC.
+ * \param[in] fp: A file to be written code
+ */
+void save_state(FILE *fp, char *register_name) {
+    fprintf(fp, "@%s\n", register_name);
+    fprintf(fp, "D=M\n");
+    fprintf(fp, "@SP\n");
+    fprintf(fp, "A=M\n");
+    fprintf(fp, "M=D\n");
     fprintf(fp, "@SP\n");
     fprintf(fp, "M=M+1\n");
 }
