@@ -10,7 +10,7 @@
 using std::set;
 using std::string;
 
-namespace tokenizer {
+namespace compiler {
 
 namespace {
 
@@ -35,7 +35,7 @@ Tokenizer::Tokenizer(const string &input_file) {
       exit(1);
   }
 
-  input_stream_ >> current_token_;
+  current_token_ = "";
   next_token_ = "";
   Advance();
 };
@@ -100,6 +100,8 @@ void Tokenizer::Advance() {
       }
     }
   }
+
+  Tokenizer::SetTokenType();
 }
 
 // Gets and returns the type of the current token.

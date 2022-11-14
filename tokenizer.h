@@ -6,10 +6,11 @@
 #include <string>
 
 using std::ifstream;
+using std::ofstream;
 using std::set;
 using std::string;
 
-namespace tokenizer {
+namespace compiler {
 
 enum TokenType {
   kReservedWordType, kSymbolType, kIdentifierType, kIntConstType, kStringConstType,
@@ -40,6 +41,7 @@ class Tokenizer {
     string GetIdentifier();
     int GetIntVal();
     string GetStringVal();
+    void WriteToken();
 
   private:
     // Members
